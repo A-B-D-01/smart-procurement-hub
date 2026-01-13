@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% set active_page = 'suppliers' %}
+
+{% block title %}Create Purchase Order - Smart Procurement Hub{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full max-w-5xl mx-auto">
+    <div class="flex flex-wrap justify-between gap-3 pb-4">
+        <div>
+            <p class="text-black dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Create Purchase Order</p>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">Generate a new PO using natural language or structured form</p>
+        </div>
+        <a href="{{ url_for('purchase_orders') }}" class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Back to POs
+        </a>
+    </div>
+
+    <div class="flex flex-col gap-8 py-4">
+        <!-- Natural Language Input Section -->
+        <div class="flex flex-col gap-4 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span class="material-symbols-outlined text-2xl">auto_awesome</span>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-black dark:text-white text-xl font-bold leading-tight">Natural Language Procurement Input</h2>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">Describe your procurement needs in plain language. Our AI will extract the details and populate the form below.</p>
+                </div>
+            </div>
+            
+            <textarea 
+                id="nlInput"
+                class="flex w-full min-h-28 resize-y appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                placeholder="e.g., Need 500 industrial bearings delivered to Mumbai by next Friday, budget ₹2L. Prefer Global Tech Parts as supplier."
+            ></textarea>
+            
+            <div class="flex justify-end">
+                <button 
+                    onclick="convertToStructuredPO()"
+                    class="flex cursor-pointer items-center justify-center overflow-hidden rounded-md h-10 bg-primary text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-[10rem] px-4 hover:opacity-90"
+                >
+                    <span class="material-symbols-outlined text-base">auto_awesome</span>
+                    <span>Convert to Structured PO</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Structured PO Form -->
+        <form action="{{ url_for('create_po') }}" method="POST" class="flex flex-col gap-4 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <div class="flex items-start gap-3 mb-2">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
+                    <span class="material-symbols-outlined text-2xl">description</span>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-black dark:text-white text-xl font-bold leading-tight">Purchase Order Details</h2>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">Fill in the details below or use the natural language input above</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                <!-- Supplier Selection -->
+                <div class="flex flex-col gap-2 md:col-span-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="supplier">
+                        Supplier <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="supplier"
+                        name="supplier_id"
+                        onchange="updateSupplierInfo(this)"
+                        required
+                    >
+                        <option value="">Select a supplier</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.supplier_id }}" data-name="{{ s.name }}" {% if supplier and supplier.supplier_id == s.supplier_id %}selected{% endif %}>
+                            {{ s.name }} ({{ s.industry }}) - {{ s.city }}, {{ s.country }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="supplier_name" id="supplier_name" value="{% if supplier %}{{ supplier.name }}{% endif %}">
+                    
+                    {% if not supplier %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Don't see your supplier? 
+                        <a href="{{ url_for('suppliers') }}" class="text-primary hover:underline">Browse recommended suppliers</a>
+                    </p>
+                    {% endif %}
+                </div>
+
+                <!-- Item Details -->
+                <div class="flex flex-col gap-2 md:col-span-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="item-details">
+                        Item Description <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="item-details"
+                        name="item_description"
+                        placeholder="e.g., High-Performance CPU Model X"
+                        required
+                    />
+                </div>
+
+                <!-- Quantity -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="quantity">
+                        Quantity <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="quantity"
+                        name="quantity"
+                        placeholder="e.g., 500"
+                        type="number"
+                        min="1"
+                        onchange="calculateTotal()"
+                        required
+                    />
+                </div>
+
+                <!-- Unit Price -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="price">
+                        Price per Unit (₹) <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="price"
+                        name="unit_price"
+                        placeholder="e.g., 400.00"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        onchange="calculateTotal()"
+                        required
+                    />
+                </div>
+
+                <!-- Expected Delivery Date -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="delivery-date">
+                        Expected Delivery Date <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="delivery-date"
+                        name="delivery_date"
+                        type="date"
+                        required
+                    />
+                </div>
+
+                <!-- Payment Terms -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="payment-terms">
+                        Payment Terms
+                    </label>
+                    <select 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="payment-terms"
+                        name="payment_terms"
+                    >
+                        <option value="Net 30" selected>Net 30</option>
+                        <option value="Net 45">Net 45</option>
+                        <option value="Net 60">Net 60</option>
+                        <option value="Net 15">Net 15</option>
+                        <option value="Immediate">Immediate</option>
+                    </select>
+                </div>
+
+                <!-- Shipping Method -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="shipping-method">
+                        Shipping Method
+                    </label>
+                    <select 
+                        class="flex w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="shipping-method"
+                        name="shipping_method"
+                    >
+                        <option value="Ground" selected>Ground</option>
+                        <option value="Air Freight">Air Freight</option>
+                        <option value="Sea Freight">Sea Freight</option>
+                        <option value="Express">Express</option>
+                    </select>
+                </div>
+
+                <!-- Ship To Address -->
+                <div class="flex flex-col gap-2 md:col-span-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="ship-to">
+                        Ship To Address
+                    </label>
+                    <textarea 
+                        class="flex w-full min-h-20 resize-y appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="ship-to"
+                        name="ship_to"
+                        placeholder="Enter delivery address..."
+                    >456 Corporate Blvd, Business Park, CA 90210</textarea>
+                </div>
+
+                <!-- Additional Notes -->
+                <div class="flex flex-col gap-2 md:col-span-2">
+                    <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal" for="notes">
+                        Additional Notes / Terms & Conditions
+                    </label>
+                    <textarea 
+                        class="flex w-full min-h-24 resize-y appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                        id="notes"
+                        name="notes"
+                        placeholder="Enter payment terms, delivery conditions, special requirements, etc."
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="mt-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-[#324467]">
+                <h3 class="text-base font-bold text-black dark:text-white mb-3">Order Summary</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                        <span class="text-black dark:text-white font-medium" id="subtotal">₹0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Tax (18%):</span>
+                        <span class="text-black dark:text-white font-medium" id="tax">₹0.00</span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-gray-300 dark:border-gray-600">
+                        <span class="text-base font-bold text-black dark:text-white">Total:</span>
+                        <span class="text-base font-bold text-primary" id="total">₹0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-[#324467]">
+                <a href="{{ url_for('purchase_orders') }}" class="px-6 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                    Cancel
+                </a>
+                <button 
+                    type="submit" 
+                    class="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-md hover:opacity-90"
+                >
+                    <span class="material-symbols-outlined text-base">add_shopping_cart</span>
+                    Create Purchase Order
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Update supplier name when supplier is selected
+function updateSupplierInfo(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const supplierName = selectedOption.getAttribute('data-name');
+    document.getElementById('supplier_name').value = supplierName || '';
+}
+
+// Calculate total amount
+function calculateTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const price = parseFloat(document.getElementById('price').value) || 0;
+    
+    const subtotal = quantity * price;
+    const tax = subtotal * 0.18; // 18% tax
+    const total = subtotal + tax;
+    
+    document.getElementById('subtotal').textContent = '₹' + subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('tax').textContent = '₹' + tax.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('total').textContent = '₹' + total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+// Convert natural language to structured PO
+async function convertToStructuredPO() {
+    const nlInput = document.getElementById('nlInput').value.trim();
+    
+    if (!nlInput) {
+        alert('Please enter a description of your procurement needs.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/convert-to-po', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ input: nlInput })
+        });
+        
+        const data = await response.json();
+        
+        // Populate form fields
+        if (data.item_description) {
+            document.getElementById('item-details').value = data.item_description;
+        }
+        if (data.quantity) {
+            document.getElementById('quantity').value = data.quantity;
+        }
+        if (data.delivery_date) {
+            // Try to parse and format date
+            document.getElementById('delivery-date').value = data.delivery_date;
+        }
+        if (data.budget && data.quantity) {
+            const unitPrice = data.budget / data.quantity;
+            document.getElementById('price').value = unitPrice.toFixed(2);
+        }
+        
+        // Recalculate totals
+        calculateTotal();
+        
+        // Show success message
+        alert('✓ Form populated from natural language input. Please review and adjust as needed.');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error processing natural language input. Please try again or fill the form manually.');
+    }
+}
+
+// Set minimum date to today
+document.addEventListener('DOMContentLoaded', function() {
+    const deliveryDate = document.getElementById('delivery-date');
+    const today = new Date().toISOString().split('T')[0];
+    deliveryDate.setAttribute('min', today);
+});
+</script>
+{% endblock %}

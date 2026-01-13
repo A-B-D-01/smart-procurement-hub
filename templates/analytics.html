@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% set active_page = 'analytics' %}
+
+{% block title %}Analytics - Smart Procurement Hub{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full">
+    <div class="flex flex-wrap justify-between gap-3 pb-4">
+        <p class="text-black dark:text-white text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Analytics Overview</p>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-[#1a2332] border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Total POs Processed</p>
+            <p class="text-black dark:text-white tracking-light text-3xl font-bold leading-tight">{{ "{:,}".format(data.stats.total_pos) }}</p>
+            <p class="text-green-500 text-sm">↑ 5.2% from last month</p>
+        </div>
+
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-[#1a2332] border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Average Supplier Rating</p>
+            <p class="text-black dark:text-white tracking-light text-3xl font-bold leading-tight">{{ data.stats.avg_rating }} / 5</p>
+            <p class="text-green-500 text-sm">↑ 0.1 from last quarter</p>
+        </div>
+
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-[#1a2332] border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Avg. Procurement Cycle</p>
+            <p class="text-black dark:text-white tracking-light text-3xl font-bold leading-tight">{{ data.stats.avg_cycle_time }} Days</p>
+            <p class="text-red-500 text-sm">↓ 3.1% (improvement)</p>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+        <!-- Performance Trends Chart -->
+        <div class="lg:col-span-3 bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-[#324467] rounded-lg p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white mb-4">Performance Trends</h3>
+            <div class="h-80">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Risk Distribution Chart -->
+        <div class="lg:col-span-2 bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-[#324467] rounded-lg p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white mb-4">Supplier Risk Distribution</h3>
+            <div class="h-80 flex items-center justify-center">
+                <canvas id="riskChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Insights Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <!-- Top Suppliers by Volume -->
+        <div class="bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-[#324467] rounded-lg p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white mb-4">Top Suppliers by Order Volume</h3>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">1</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-black dark:text-white">Global Electronics Corp.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Electronics • USA</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-black dark:text-white">156 POs</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">₹2.4M</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">2</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-black dark:text-white">Premium Automotive Ltd.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Automotive • Germany</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-black dark:text-white">132 POs</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">₹1.9M</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">3</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-black dark:text-white">Elite Construction Inc.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Construction • India</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-black dark:text-white">118 POs</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">₹1.6M</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">4</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-black dark:text-white">Alpha Textiles Solutions</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Textiles • Vietnam</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-black dark:text-white">94 POs</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">₹1.2M</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">5</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-black dark:text-white">Superior Pharmaceuticals</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Pharmaceuticals • Japan</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-black dark:text-white">87 POs</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">₹1.1M</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cost Savings Insights -->
+        <div class="bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-[#324467] rounded-lg p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white mb-4">Cost Savings Insights</h3>
+            <div class="space-y-4">
+                <div class="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-green-600">savings</span>
+                        <h4 class="text-sm font-bold text-green-800 dark:text-green-300">Total Savings This Quarter</h4>
+                    </div>
+                    <p class="text-2xl font-bold text-green-700 dark:text-green-400">₹{{ "{:,.2f}".format(data.stats.cost_savings) }}</p>
+                    <p class="text-xs text-green-600 dark:text-green-500 mt-1">+8.0% vs last quarter</p>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <div>
+                            <p class="text-sm font-medium text-black dark:text-white">Bulk Purchase Discounts</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">235 orders</p>
+                        </div>
+                        <p class="text-sm font-bold text-green-600">₹42,500</p>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <div>
+                            <p class="text-sm font-medium text-black dark:text-white">Supplier Negotiations</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">18 suppliers</p>
+                        </div>
+                        <p class="text-sm font-bold text-green-600">₹38,200</p>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <div>
+                            <p class="text-sm font-medium text-black dark:text-white">Early Payment Discounts</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">89 orders</p>
+                        </div>
+                        <p class="text-sm font-bold text-green-600">₹15,800</p>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <div>
+                            <p class="text-sm font-medium text-black dark:text-white">Process Optimization</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Reduced cycle time</p>
+                        </div>
+                        <p class="text-sm font-bold text-green-600">₹24,600</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Industry Breakdown -->
+    <div class="mt-6 bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-[#324467] rounded-lg p-6">
+        <h3 class="text-lg font-bold text-black dark:text-white mb-4">Procurement by Industry</h3>
+        <div class="h-64">
+            <canvas id="industryChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#cbd5e1' : '#4b5563';
+
+    // Performance Trends Chart (Line)
+    const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+    new Chart(trendsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ data.monthly_pos.labels | tojson }},
+            datasets: [{
+                label: 'POs Processed',
+                data: {{ data.monthly_pos.data | tojson }},
+                borderColor: '#135bec',
+                backgroundColor: 'rgba(19, 91, 236, 0.1)',
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y'
+            }, {
+                label: 'Cycle Time (Days)',
+                data: {{ data.cycle_time.data | tojson }},
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { 
+                        color: textColor,
+                        usePointStyle: true,
+                        padding: 15
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDarkMode ? '#1a2332' : '#ffffff',
+                    titleColor: textColor,
+                    bodyColor: textColor,
+                    borderColor: gridColor,
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: textColor }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: gridColor },
+                    ticks: { color: textColor },
+                    title: {
+                        display: true,
+                        text: 'POs Processed',
+                        color: textColor
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: textColor },
+                    title: {
+                        display: true,
+                        text: 'Cycle Time (Days)',
+                        color: textColor
+                    }
+                }
+            }
+        }
+    });
+
+    // Risk Distribution Chart (Doughnut)
+    const riskCtx = document.getElementById('riskChart').getContext('2d');
+    new Chart(riskCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low Risk', 'Medium Risk', 'High Risk'],
+            datasets: [{
+                label: 'Suppliers',
+                data: [
+                    {{ data.risk_distribution.low }},
+                    {{ data.risk_distribution.medium }},
+                    {{ data.risk_distribution.high }}
+                ],
+                backgroundColor: ['#22c55e', '#facc15', '#ef4444'],
+                borderColor: isDarkMode ? '#1a2332' : '#ffffff',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        color: textColor,
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDarkMode ? '#1a2332' : '#ffffff',
+                    titleColor: textColor,
+                    bodyColor: textColor,
+                    borderColor: gridColor,
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Industry Breakdown Chart (Bar)
+    const industryCtx = document.getElementById('industryChart').getContext('2d');
+    new Chart(industryCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Electronics', 'Automotive', 'Construction', 'Textiles', 'Pharma', 'Food & Bev', 'Chemicals', 'Machinery', 'Plastics', 'Metal Works'],
+            datasets: [{
+                label: 'Number of POs',
+                data: [456, 432, 418, 394, 387, 356, 342, 318, 294, 268],
+                backgroundColor: '#135bec',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: isDarkMode ? '#1a2332' : '#ffffff',
+                    titleColor: textColor,
+                    bodyColor: textColor,
+                    borderColor: gridColor,
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        color: textColor,
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                },
+                y: {
+                    grid: { color: gridColor },
+                    ticks: { color: textColor },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

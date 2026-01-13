@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+{% set active_page = 'pos' %}
+
+{% block title %}Purchase Orders - Smart Procurement Hub{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full">
+    <div class="flex flex-wrap justify-between gap-3 pb-4">
+        <p class="text-black dark:text-white text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Purchase Orders</p>
+        <a href="{{ url_for('create_po') }}" class="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-base">add</span>
+            Create New PO
+        </a>
+    </div>
+
+    <!-- Stats Summary (IDs added for live updates) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pb-6">
+        <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Total POs</p>
+            <p id="total_pos_count" class="text-2xl font-bold text-black dark:text-white">{{ "{:,}".format(total_pos|default(0)) }}</p>
+        </div>
+        <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Pending</p>
+            <p id="pending_count" class="text-2xl font-bold text-yellow-600">{{ "{:,}".format(pending_count|default(0)) }}</p>
+        </div>
+        <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Completed</p>
+            <p id="completed_count" class="text-2xl font-bold text-green-600">{{ "{:,}".format(completed_count|default(0)) }}</p>
+        </div>
+        <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Delivered</p>
+            <p id="delivered_count" class="text-2xl font-bold text-blue-600">{{ "{:,}".format(delivered_count|default(0)) }}</p>
+        </div>
+        <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Cancelled</p>
+            <p id="cancelled_count" class="text-2xl font-bold text-red-600">{{ "{:,}".format(cancelled_count|default(0)) }}</p>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="flex flex-col md:flex-row gap-4 pb-6">
+        <form action="{{ url_for('purchase_orders') }}" method="get" class="flex flex-1 gap-2">
+            <input 
+                type="text" 
+                name="search" 
+                value="{{ search_query or '' }}"
+                placeholder="Search by PO number, supplier, or item..." 
+                class="flex-1 appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-4 py-2.5 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <button type="submit" class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90">
+                <span class="material-symbols-outlined text-base">search</span>
+                Search
+            </button>
+        </form>
+        
+        <form action="{{ url_for('purchase_orders') }}" method="get" class="flex gap-2">
+            {% if search_query %}
+            <input type="hidden" name="search" value="{{ search_query }}" />
+            {% endif %}
+            <select 
+                name="status" 
+                onchange="this.form.submit()"
+                class="appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-4 py-2.5 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+                <option value="">All Statuses</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if selected_status or search_query %}
+        <a href="{{ url_for('purchase_orders') }}" class="flex items-center justify-center gap-2 rounded-md border border-gray-300 dark:border-[#324467] px-6 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            Clear Filters
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Purchase Orders Table (row IDs + status badge id added) -->
+    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-[#324467]">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50 dark:bg-[#1a2332]">
+                <tr class="border-b border-gray-200 dark:border-[#324467]">
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">PO NUMBER</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">SUPPLIER</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">ITEM</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">ORDER DATE</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">DELIVERY DATE</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">AMOUNT</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">STATUS</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for po in pos %}
+                {# safe id (no spaces) #}
+                <tr id="po-row-{{ po.po_number }}" data-po-number="{{ po.po_number }}" class="border-b border-gray-200 dark:border-[#324467] hover:bg-gray-50 dark:hover:bg-[#1a2332]">
+                    <td class="p-4">
+                        <p class="text-sm font-bold text-primary">{{ po.po_number }}</p>
+                    </td>
+                    <td class="p-4">
+                        <p class="text-sm font-medium text-black dark:text-white">{{ po.supplier_name|default('') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ po.supplier_id|default('') }}</p>
+                    </td>
+                    <td class="p-4">
+                        <p class="text-sm text-black dark:text-white">{{ po.item_description|default('') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Qty: {{ po.quantity|default(0) }}</p>
+                    </td>
+                    <td class="p-4 text-sm text-gray-600 dark:text-gray-300">{{ po.order_date|default('') }}</td>
+                    <td class="p-4 text-sm text-gray-600 dark:text-gray-300">
+                        <span id="expected-{{ po.po_number }}">{{ po.expected_delivery_date|default('') }}</span>
+                        {% if po.actual_delivery_date %}
+                        <p id="actual-{{ po.po_number }}" class="text-xs {% if po.on_time_delivery|default(false) %}text-green-600{% else %}text-red-600{% endif %}">
+                            Actual: {{ po.actual_delivery_date }}
+                        </p>
+                        {% else %}
+                        <p id="actual-{{ po.po_number }}" class="text-xs text-gray-500 hidden">Actual:</p>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        <p class="text-sm font-bold text-black dark:text-white"><span id="amount-{{ po.po_number }}">{{ po.currency|default('') }} {{ "{:,.2f}".format(po.total_amount|default(0.0)) }}</span></p>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            {% set st = po.status|default('Pending') %}
+                            <span id="status-{{ po.po_number }}" class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium
+                                {% if st == 'Pending' %} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 {% elif st == 'Completed' %} bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 {% elif st == 'Delivered' %} bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 {% else %} bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 {% endif %}">
+                                <span class="size-1.5 rounded-full {% if st == 'Pending' %}bg-yellow-500{% elif st == 'Completed' %}bg-green-500{% elif st == 'Delivered' %}bg-blue-500{% else %}bg-red-500{% endif %}"></span>
+                                {{ st }}
+                            </span>
+
+                            <select 
+                                id="select-{{ po.po_number }}"
+                                data-previous-value="{{ st }}"
+                                onchange="handleStatusChange('{{ po.po_number }}', this.value, this)"
+                                onfocus="this.setAttribute('data-previous-value', this.value)"
+                                class="text-xs rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-2 py-1 text-black dark:text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            >
+                                <option value="Pending" {% if st == 'Pending' %}selected{% endif %}>Pending</option>
+                                <option value="Completed" {% if st == 'Completed' %}selected{% endif %}>Completed</option>
+                                <option value="Delivered" {% if st == 'Delivered' %}selected{% endif %}>Delivered</option>
+                                <option value="Cancelled" {% if st == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td class="p-4 text-right">
+                        <a href="{{ url_for('po_details', po_number=po.po_number) }}" class="text-sm font-bold text-primary hover:underline">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not pos|length %}
+    <div class="text-center py-12">
+        <p class="text-gray-500 dark:text-gray-400 text-lg">No purchase orders found.</p>
+        <a href="{{ url_for('create_po') }}" class="text-primary hover:underline mt-2 inline-block">Create your first PO</a>
+    </div>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if total_pages|default(0) > 1 %}
+    <div class="flex justify-center items-center gap-2 pt-6">
+        {% if page|default(1) > 1 %}
+        <a href="{{ url_for('purchase_orders', page=page-1, status=selected_status, search=search_query) }}" class="px-4 py-2 rounded-md border border-gray-300 dark:border-[#324467] text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            Previous
+        </a>
+        {% endif %}
+
+        <span class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+            Page {{ page|default(1) }} of {{ total_pages|default(1) }}
+        </span>
+
+        {% if page|default(1) < total_pages|default(1) %}
+        <a href="{{ url_for('purchase_orders', page=page+1, status=selected_status, search=search_query) }}" class="px-4 py-2 rounded-md border border-gray-300 dark:border-[#324467] text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            Next
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Rating Modal for Completed Status -->
+    <div id="ratingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 overflow-y-auto">
+    <div class="w-full max-w-4xl rounded-xl bg-background-light dark:bg-background-dark border border-gray-200 dark:border-[#324467] my-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-gray-200 dark:border-[#324467] p-4 sm:p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white">Complete Purchase Order</h3>
+            <button onclick="closeRatingModal()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <form id="ratingForm" class="p-4 sm:p-6 space-y-6">
+            <input type="hidden" id="modalPONumber" />
+            <input type="hidden" id="modalStatusSelect" />
+            
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                Please provide ratings for all supplier metrics to mark this purchase order as Completed. These ratings will update the supplier's scores.
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Quality Score -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Quality Score <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('quality_score', 1)" class="rating-btn quality_score-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('quality_score', 2)" class="rating-btn quality_score-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('quality_score', 3)" class="rating-btn quality_score-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('quality_score', 4)" class="rating-btn quality_score-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('quality_score', 5)" class="rating-btn quality_score-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="quality_scoreRating" name="quality_score" required />
+                </div>
+                
+                <!-- On-Time Delivery Rate -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        On-Time Delivery Rate <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('on_time_delivery_rate', 1)" class="rating-btn on_time_delivery_rate-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('on_time_delivery_rate', 2)" class="rating-btn on_time_delivery_rate-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('on_time_delivery_rate', 3)" class="rating-btn on_time_delivery_rate-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('on_time_delivery_rate', 4)" class="rating-btn on_time_delivery_rate-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('on_time_delivery_rate', 5)" class="rating-btn on_time_delivery_rate-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="on_time_delivery_rateRating" name="on_time_delivery_rate" required />
+                </div>
+                
+                <!-- Response Time Hours -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Response Time (1=Fast, 5=Slow) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('response_time_hours', 1)" class="rating-btn response_time_hours-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('response_time_hours', 2)" class="rating-btn response_time_hours-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('response_time_hours', 3)" class="rating-btn response_time_hours-rating w-12 h-12 rounded-lg border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('response_time_hours', 4)" class="rating-btn response_time_hours-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('response_time_hours', 5)" class="rating-btn response_time_hours-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="response_time_hoursRating" name="response_time_hours" required />
+                </div>
+                
+                <!-- Political Risk -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Political Risk (1=High, 5=Low) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('political_risk', 1)" class="rating-btn political_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('political_risk', 2)" class="rating-btn political_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('political_risk', 3)" class="rating-btn political_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('political_risk', 4)" class="rating-btn political_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('political_risk', 5)" class="rating-btn political_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="political_riskRating" name="political_risk" required />
+                </div>
+                
+                <!-- Trade Risk -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Trade Risk (1=High, 5=Low) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('trade_risk', 1)" class="rating-btn trade_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('trade_risk', 2)" class="rating-btn trade_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('trade_risk', 3)" class="rating-btn trade_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('trade_risk', 4)" class="rating-btn trade_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('trade_risk', 5)" class="rating-btn trade_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="trade_riskRating" name="trade_risk" required />
+                </div>
+                
+                <!-- Natural Disaster Risk -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Natural Disaster Risk (1=High, 5=Low) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('natural_disaster_risk', 1)" class="rating-btn natural_disaster_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('natural_disaster_risk', 2)" class="rating-btn natural_disaster_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('natural_disaster_risk', 3)" class="rating-btn natural_disaster_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('natural_disaster_risk', 4)" class="rating-btn natural_disaster_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('natural_disaster_risk', 5)" class="rating-btn natural_disaster_risk-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="natural_disaster_riskRating" name="natural_disaster_risk" required />
+                </div>
+                
+                <!-- Overall Rating -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Overall Rating <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setRating('overall', 1)" class="rating-btn overall-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="1">1</button>
+                        <button type="button" onclick="setRating('overall', 2)" class="rating-btn overall-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="2">2</button>
+                        <button type="button" onclick="setRating('overall', 3)" class="rating-btn overall-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="3">3</button>
+                        <button type="button" onclick="setRating('overall', 4)" class="rating-btn overall-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="4">4</button>
+                        <button type="button" onclick="setRating('overall', 5)" class="rating-btn overall-rating w-12 h-12 rounded-lg border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] text-sm font-bold" data-rating="5">5</button>
+                    </div>
+                    <input type="hidden" id="overallRating" name="overall" required />
+                </div>
+            </div>
+            
+            <!-- Comments -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Comments (Optional)
+                </label>
+                <textarea 
+                    id="ratingComments" 
+                    name="comments" 
+                    rows="3" 
+                    class="w-full appearance-none rounded-md border border-gray-300 dark;border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Add any additional comments about this purchase order..."
+                ></textarea>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-[#324467]">
+                <button type="button" onclick="closeRatingModal()" class="px-6 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                    Cancel
+                </button>
+                <button type="submit" class="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-md hover:opacity-90">
+                    <span class="material-symbols-outlined text-base">check</span>
+                    Complete Order
+                </button>
+            </div>
+        </form>
+    </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/*
+  Live update behavior:
+   - send POST to /api/update-po-status (your current API)
+   - on success use returned data.po to update row + header counters
+*/
+
+let currentPONumber = null;
+let currentStatusSelect = null;
+
+function handleStatusChange(poNumber, newStatus, selectElement) {
+    // store previous to allow rollback
+    const previousValue = selectElement.getAttribute('data-previous-value') || selectElement.value;
+    selectElement.setAttribute('data-previous-value', previousValue);
+
+    if (newStatus === 'Completed') {
+        // open rating modal and let user submit ratings which will call updatePOStatus
+        currentPONumber = poNumber;
+        currentStatusSelect = selectElement;
+        showRatingModal(poNumber);
+        return;
+    }
+
+    // Optimistic UI: disable select while updating
+    selectElement.disabled = true;
+    updatePOStatus(poNumber, newStatus)
+        .then(updated => {
+            if (!updated) {
+                // restore previous value
+                selectElement.value = previousValue;
+            } else {
+                // commit previous-value for future interactions
+                selectElement.setAttribute('data-previous-value', newStatus);
+            }
+        })
+        .finally(() => {
+            selectElement.disabled = false;
+        });
+}
+
+function showRatingModal(poNumber) {
+    const modal = document.getElementById('ratingModal');
+    if (!modal) return;
+    const modalInput = document.getElementById('modalPONumber');
+    modalInput.value = poNumber;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // reset rating inputs & styles
+    document.getElementById('ratingForm')?.reset();
+    document.querySelectorAll('.rating-btn').forEach(btn => {
+        btn.classList.remove('bg-primary','text-white','border-primary');
+        btn.classList.add('bg-white','dark:bg-[#192231]');
+    });
+}
+
+function closeRatingModal() {
+    const modal = document.getElementById('ratingModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    // restore select to previous if no currentStatusSelect set to new value
+    if (currentStatusSelect) {
+        const prev = currentStatusSelect.getAttribute('data-previous-value');
+        if (prev) currentStatusSelect.value = prev;
+    }
+    currentPONumber = null;
+    currentStatusSelect = null;
+}
+
+function setRating(type, value) {
+    const input = document.getElementById(type + 'Rating');
+    if (input) input.value = value;
+
+    const buttons = document.querySelectorAll(`.${type}-rating`);
+    buttons.forEach((btn, index) => {
+        if (index < value) {
+            btn.classList.add('bg-primary', 'text-white', 'border-primary');
+            btn.classList.remove('bg-white', 'dark:bg-[#192231]');
+        } else {
+            btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+            btn.classList.add('bg-white', 'dark:bg-[#192231]');
+        }
+    });
+}
+
+// attach rating submit handler (sends ratings + status Completed)
+(function attachRatingSubmit() {
+    const form = document.getElementById('ratingForm');
+    if (!form) return;
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const poNumber = document.getElementById('modalPONumber').value;
+        const ratings = {
+            quality_score: parseInt(document.getElementById('quality_scoreRating').value || 0),
+            on_time_delivery_rate: parseInt(document.getElementById('on_time_delivery_rateRating').value || 0),
+            response_time_hours: parseInt(document.getElementById('response_time_hoursRating').value || 0),
+            political_risk: parseInt(document.getElementById('political_riskRating').value || 0),
+            trade_risk: parseInt(document.getElementById('trade_riskRating').value || 0),
+            natural_disaster_risk: parseInt(document.getElementById('natural_disaster_riskRating').value || 0),
+            overall: parseInt(document.getElementById('overallRating').value || 0),
+            comments: (document.getElementById('ratingComments') && document.getElementById('ratingComments').value) || ''
+        };
+
+        // validation
+        if (!ratings.quality_score || !ratings.on_time_delivery_rate || !ratings.response_time_hours || 
+            !ratings.political_risk || !ratings.trade_risk || !ratings.natural_disaster_risk || !ratings.overall) {
+            alert('Please provide all required ratings');
+            return;
+        }
+
+        // disable submit to avoid duplicate requests
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const updated = await updatePOStatus(poNumber, 'Completed', ratings);
+        if (!updated) {
+            // keep modal open for retry
+            console.warn('Failed to update to Completed');
+        }
+
+        if (submitBtn) submitBtn.disabled = false;
+    });
+})();
+
+/**
+ * updatePOStatus
+ * - POSTs to /api/update-po-status (your server)
+ * - expects { ok: True, po: {...} } on success (this is how your current API responds)
+ * - updates DOM in-place (status badge, select, actual delivery date) and header counters
+ */
+async function updatePOStatus(poNumber, newStatus, ratings = null) {
+    try {
+        const body = { po_number: poNumber, status: newStatus };
+        if (ratings) body.ratings = ratings;
+
+        const resp = await fetch('/api/update-po-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await resp.json().catch(()=>({}));
+
+        if (resp.ok && data && data.ok && data.po) {
+            applyUpdateToRow(data.po);
+            return data.po;
+        } else {
+            const msg = (data && (data.message || data.error)) || `Server returned ${resp.status}`;
+            alert(`Failed to update status: ${msg}`);
+            return false;
+        }
+    } catch (err) {
+        console.error('updatePOStatus exception:', err);
+        alert('Network or server error while updating status.');
+        return false;
+    }
+}
+
+/**
+ * applyUpdateToRow(updatedPo)
+ * - updatedPo is the PO object returned by the server (pos_df row -> dict)
+ * - update: status badge text & color, select value, actual delivery date text, header counters
+ */
+function applyUpdateToRow(updatedPo) {
+    const poNumber = String(updatedPo.po_number);
+    const row = document.getElementById(`po-row-${poNumber}`);
+    const statusSpan = document.getElementById(`status-${poNumber}`);
+    const select = document.getElementById(`select-${poNumber}`);
+    const actualP = document.getElementById(`actual-${poNumber}`);
+    const expectedSpan = document.getElementById(`expected-${poNumber}`);
+    const amountSpan = document.getElementById(`amount-${poNumber}`);
+
+    // get previous status from select's data attribute (fallback to DOM text)
+    const previousStatus = (select && select.getAttribute('data-previous-value')) || (statusSpan && statusSpan.textContent.trim()) || '';
+
+    const newStatus = updatedPo.status || newStatusFromRow(updatedPo);
+
+    // update badge: replace classes and inner HTML
+    if (statusSpan) {
+        // set colors and inner text consistent with template
+        let badgeClasses = 'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium';
+        let dotClass = 'size-1.5 rounded-full';
+        let inner = '';
+
+        if (newStatus === 'Pending') {
+            badgeClasses += ' bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300';
+            dotClass += ' bg-yellow-500';
+        } else if (newStatus === 'Completed') {
+            badgeClasses += ' bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
+            dotClass += ' bg-green-500';
+        } else if (newStatus === 'Delivered') {
+            badgeClasses += ' bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
+            dotClass += ' bg-blue-500';
+        } else {
+            badgeClasses += ' bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300';
+            dotClass += ' bg-red-500';
+        }
+
+        statusSpan.className = badgeClasses;
+        statusSpan.innerHTML = `<span class="${dotClass}"></span>${newStatus}`;
+    }
+
+    // update select: set value & previous-value attr
+    if (select) {
+        select.value = newStatus;
+        select.setAttribute('data-previous-value', newStatus);
+    }
+
+    // update actual delivery date if returned
+    if (actualP) {
+        const actual = updatedPo.actual_delivery_date || '';
+        if (actual) {
+            actualP.classList.remove('hidden');
+            actualP.classList.remove('text-gray-500');
+            // determine color based on on_time_delivery field if present, else leave neutral
+            const onTime = updatedPo.on_time_delivery === true || (updatedPo.on_time_delivery === 'True' || updatedPo.on_time_delivery === 'true');
+            actualP.classList.remove('text-green-600','text-red-600');
+            actualP.classList.add(onTime ? 'text-green-600' : 'text-red-600');
+            actualP.textContent = `Actual: ${actual}`;
+        } else {
+            actualP.classList.add('hidden');
+            actualP.textContent = 'Actual:';
+        }
+    }
+
+    // update expected date if backend changed it
+    if (expectedSpan && updatedPo.expected_delivery_date) {
+        expectedSpan.textContent = updatedPo.expected_delivery_date;
+    }
+
+    // update amount if backend changed it
+    if (amountSpan && (typeof updatedPo.total_amount !== 'undefined')) {
+        const currency = updatedPo.currency || '';
+        const n = Number(updatedPo.total_amount || 0);
+        amountSpan.textContent = `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    // update header counters: decrement previousStatus counter and increment newStatus counter
+    try {
+        adjustCounters(previousStatus, newStatus);
+    } catch (e) {
+        console.warn('adjustCounters failed', e);
+    }
+}
+
+/**
+ * helper: decide newStatus from PO row fallback
+ */
+function newStatusFromRow(po) {
+    return po.status || 'Pending';
+}
+
+/**
+ * adjustCounters(prev, next)
+ * - find the counter elements by id and update numeric values
+ */
+function adjustCounters(prev, next) {
+    if (!prev && !next) return;
+    const map = {
+        'Pending': 'pending_count',
+        'Completed': 'completed_count',
+        'Delivered': 'delivered_count',
+        'Cancelled': 'cancelled_count'
+    };
+
+    // if prev equals next, nothing to do
+    if (prev === next) return;
+
+    // decrement prev
+    if (prev && map[prev]) {
+        const el = document.getElementById(map[prev]);
+        if (el) {
+            const num = parseInt(el.textContent.replace(/[^0-9]/g,'') || '0', 10);
+            el.textContent = (num > 0 ? num - 1 : 0).toLocaleString();
+        }
+    }
+
+    // increment next
+    if (next && map[next]) {
+        const el = document.getElementById(map[next]);
+        if (el) {
+            const num = parseInt(el.textContent.replace(/[^0-9]/g,'') || '0', 10);
+            el.textContent = (num + 1).toLocaleString();
+        }
+    }
+}
+ 
+// defensive modal click closing
+(function attachModalClick() {
+    const modal = document.getElementById('ratingModal');
+    if (!modal) return;
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) closeRatingModal();
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% set active_page = 'suppliers' %}
+
+{% block title %}Suppliers & PO Creation - Smart Procurement Hub{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full">
+    <div class="flex flex-wrap justify-between gap-3 pb-4">
+        <p class="text-black dark:text-white text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Supplier Recommendations & PO Creation</p>
+    </div>
+
+    <!-- Search and Filter Bar -->
+    <div class="flex flex-col md:flex-row gap-4 pb-6">
+        <form action="{{ url_for('suppliers') }}" method="get" class="flex flex-1 gap-2">
+            <input 
+                type="text" 
+                name="search" 
+                value="{{ search_query or '' }}"
+                placeholder="Search suppliers by name, industry, or location..." 
+                class="flex-1 appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-4 py-2.5 text-base text-black dark:text-white placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <button type="submit" class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90">
+                <span class="material-symbols-outlined text-base">search</span>
+                Search
+            </button>
+        </form>
+        
+        <form action="{{ url_for('suppliers') }}" method="get">
+            <select 
+                name="industry" 
+                onchange="this.form.submit()"
+                class="appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-4 py-2.5 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+                <option value="">All Industries</option>
+                {% for industry in industries %}
+                <option value="{{ industry }}" {% if selected_industry == industry %}selected{% endif %}>{{ industry }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if search_query or selected_industry %}
+        <a href="{{ url_for('suppliers') }}" class="flex items-center justify-center gap-2 rounded-md border border-gray-300 dark:border-[#324467] px-6 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            Clear Filters
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Suppliers Table -->
+    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-[#324467]">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50 dark:bg-[#1a2332]">
+                <tr class="border-b border-gray-200 dark:border-[#324467]">
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">SUPPLIER</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">INDUSTRY</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">LOCATION</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">MATCH SCORE</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">RISK LEVEL</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300">SAVINGS POTENTIAL</th>
+                    <th class="p-4 text-sm font-bold text-gray-600 dark:text-gray-300"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in recommendations %}
+                <tr class="border-b border-gray-200 dark:border-[#324467] hover:bg-gray-50 dark:hover:bg-[#1a2332]">
+                    <td class="p-4">
+                        <p class="text-sm font-medium text-black dark:text-white">{{ supplier.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ supplier.supplier_id }}</p>
+                    </td>
+                    <td class="p-4 text-sm text-black dark:text-white">{{ supplier.industry }}</td>
+                    <td class="p-4 text-sm text-gray-600 dark:text-gray-300">{{ supplier.city }}, {{ supplier.country }}</td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            <div class="text-sm font-bold text-black dark:text-white">{{ supplier.match_score }}%</div>
+                            <div class="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div class="bg-primary h-2 rounded-full" style="width: {{ supplier.match_score }}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        {% if supplier.risk_level == 'Low' %}
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">
+                            <span class="size-1.5 rounded-full bg-green-500"></span>Low
+                        </span>
+                        {% elif supplier.risk_level == 'Mid' or supplier.risk_level == 'Medium' %}
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/50 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+                            <span class="size-1.5 rounded-full bg-yellow-500"></span>Medium
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/50 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+                            <span class="size-1.5 rounded-full bg-red-500"></span>High
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-sm font-medium text-green-600 dark:text-green-400">₹{{ "{:,.0f}".format(supplier.savings_potential) }}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="showSupplierModal('{{ supplier.supplier_id }}')" class="text-sm font-bold text-primary hover:underline">View Details</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not recommendations|length %}
+    <div class="text-center py-12">
+        <p class="text-gray-500 dark:text-gray-400 text-lg">No suppliers found matching your criteria.</p>
+        <a href="{{ url_for('suppliers') }}" class="text-primary hover:underline mt-2 inline-block">Clear filters</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Supplier Details Modal -->
+<div id="supplierModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+    <div class="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-xl bg-background-light dark:bg-background-dark border border-gray-200 dark:border-[#324467]">
+        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-[#324467] bg-background-light dark:bg-background-dark p-4 sm:p-6">
+            <h3 class="text-lg font-bold text-black dark:text-white" id="modalTitle">Supplier Details</h3>
+            <button onclick="closeSupplierModal()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <div id="modalContent" class="p-4 sm:p-6 space-y-6">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentSupplierId = null;
+
+async function showSupplierModal(supplierId) {
+    currentSupplierId = supplierId;
+    const modal = document.getElementById('supplierModal');
+    const modalContent = document.getElementById('modalContent');
+    const modalTitle = document.getElementById('modalTitle');
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    // Load supplier details
+    try {
+        const response = await fetch(`/api/supplier/${supplierId}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !data.basic_info) {
+            throw new Error('Invalid data received from server');
+        }
+        
+        modalTitle.textContent = `${data.basic_info.name || 'Supplier Details'}`;
+        
+        modalContent.innerHTML = `
+            <!-- Basic Info -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-[#192130]">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Company</p>
+                    <p class="text-base font-semibold text-black dark:text-white">${data.basic_info.name}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Industry</p>
+                    <p class="text-base text-black dark:text-white">${data.basic_info.industry}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Location</p>
+                    <p class="text-base text-black dark:text-white">${data.basic_info.city}, ${data.basic_info.country}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Years in Business</p>
+                    <p class="text-base text-black dark:text-white">${data.basic_info.years_in_business} years</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Certification</p>
+                    <p class="text-base text-black dark:text-white">${data.basic_info.certification}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Employees</p>
+                    <p class="text-base text-black dark:text-white">${(data.basic_info.employee_count || 0).toLocaleString()}</p>
+                </div>
+            </div>
+
+            <!-- Scores Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-[#192130]">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Match Score</p>
+                    <div class="flex items-end gap-2">
+                        <p class="text-3xl font-bold text-primary">${data.overall.match_score || 0}%</p>
+                        <span class="text-sm text-green-500 mb-1">Excellent</span>
+                    </div>
+                </div>
+                <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-[#192130]">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Risk Level</p>
+                    <p class="text-2xl font-bold ${data.risk_profile.overall_risk === 'Low' ? 'text-green-500' : data.risk_profile.overall_risk === 'Medium' ? 'text-yellow-500' : 'text-red-500'}">${data.risk_profile.overall_risk}</p>
+                </div>
+                <div class="p-4 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-[#192130]">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Savings Potential</p>
+                    <p class="text-3xl font-bold text-green-600">₹${(data.overall.savings_potential || 0).toLocaleString()}</p>
+                </div>
+            </div>
+
+            <!-- Financial Report -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4 rounded-lg border border-gray-200 dark:border-[#324467] p-4 bg-white dark:bg-[#192130]">
+                    <h4 class="text-base font-bold text-black dark:text-white">Financial Health</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Credit Rating: <span class="font-bold text-black dark:text-white">${data.financial_health.credit_rating}</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Revenue Growth: <span class="font-bold ${(data.financial_health.revenue_growth_yoy || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">${data.financial_health.revenue_growth_yoy || 0}% YoY</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Profit Margin: <span class="font-bold text-black dark:text-white">${data.financial_health.net_profit_margin || 0}%</span></p>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200 dark:border-[#324467]">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Financial Score: ${data.financial_health.financial_score || 0}/100</p>
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                <div class="bg-primary h-2 rounded-full" style="width: ${data.financial_health.financial_score || 0}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 rounded-lg border border-gray-200 dark:border-[#324467] p-4 bg-white dark:bg-[#192130]">
+                    <h4 class="text-base font-bold text-black dark:text-white">Performance Metrics</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">On-Time Delivery: <span class="font-bold text-black dark:text-white">${(data.performance_metrics.on_time_delivery_rate || 0).toFixed(1)}%</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Quality Score: <span class="font-bold text-black dark:text-white">${data.performance_metrics.quality_score || 0}/5</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Response Time: <span class="font-bold text-black dark:text-white">${(data.performance_metrics.response_time_hours || 0).toFixed(1)} hrs</span></p>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200 dark:border-[#324467]">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Performance Score: ${data.performance_metrics.performance_score || 0}/100</p>
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: ${data.performance_metrics.performance_score || 0}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regional Risk Factors -->
+            <div class="rounded-lg border border-gray-200 dark:border-[#324467] p-4 bg-white dark:bg-[#192130]">
+                <h4 class="text-base font-bold text-black dark:text-white mb-4">Regional Risk Factors</h4>
+                <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                    <li><span class="font-semibold text-black dark:text-white">Political Stability:</span> ${data.risk_profile.political_risk} risk</li>
+                    <li><span class="font-semibold text-black dark:text-white">Trade Disputes:</span> ${data.risk_profile.trade_risk} exposure</li>
+                    <li><span class="font-semibold text-black dark:text-white">Natural Disasters:</span> ${data.risk_profile.natural_disaster_risk} risk</li>
+                </ul>
+            </div>
+
+            <!-- Business History -->
+            <div class="rounded-lg border border-gray-200 dark:border-[#324467] p-4 bg-white dark:bg-[#192130]">
+                <h4 class="text-base font-bold text-black dark:text-white mb-4">Business History</h4>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-2xl font-bold text-primary">${data.business_history.total_orders || 0}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Total Orders</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-green-600">${data.business_history.completed_orders || 0}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Completed</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-black dark:text-white">₹${(data.business_history.total_business_value || 0).toLocaleString()}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Total Value</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PO Creation Section -->
+            <div class="rounded-lg border-2 border-primary p-6 bg-primary/5 dark:bg-primary/10">
+                <h4 class="text-lg font-bold text-black dark:text-white mb-4">Create Purchase Order</h4>
+                <form action="/create-po" method="POST" class="space-y-4">
+                    <input type="hidden" name="supplier_id" value="${data.basic_info.supplier_id}">
+                    <input type="hidden" name="supplier_name" value="${data.basic_info.name}">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Item Description</label>
+                            <input type="text" name="item_description" required class="w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                            <input type="number" name="quantity" required class="w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unit Price (₹)</label>
+                            <input type="number" name="unit_price" step="0.01" required class="w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Delivery Date</label>
+                            <input type="date" name="delivery_date" required class="w-full appearance-none rounded-md border border-gray-300 dark:border-[#324467] bg-white dark:bg-[#192231] px-3 py-2 text-base text-black dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button type="button" onclick="closeSupplierModal()" class="px-6 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                            Cancel
+                        </button>
+                        <button type="submit" class="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-md hover:opacity-90">
+                            <span class="material-symbols-outlined text-base">add_shopping_cart</span>
+                            Create Purchase Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading supplier details:', error);
+        modalContent.innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-red-500 text-lg font-bold mb-2">Error loading supplier details</p>
+                <p class="text-gray-500 text-sm">${error.message || 'Please try again later'}</p>
+                <button onclick="closeSupplierModal()" class="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm font-medium">Close</button>
+            </div>
+        `;
+    }
+}
+
+function closeSupplierModal() {
+    const modal = document.getElementById('supplierModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    currentSupplierId = null;
+}
+
+// Close modal when clicking outside
+document.getElementById('supplierModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSupplierModal();
+    }
+});
+</script>
+{% endblock %}

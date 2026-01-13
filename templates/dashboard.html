@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+
+{% block title %}Dashboard - Smart Procurement Hub{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full">
+    <div class="flex flex-wrap justify-between gap-3 pb-4">
+        <p class="text-black dark:text-white text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Dashboard</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4">
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Total POs Processed</p>
+            <p class="text-black dark:text-white tracking-light text-2xl font-bold leading-tight">{{ "{:,}".format(stats.total_pos) }}</p>
+            <p class="text-green-500 dark:text-[#0bda5e] text-base font-medium leading-normal">+5.2%</p>
+        </div>
+
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Average Supplier Rating</p>
+            <p class="text-black dark:text-white tracking-light text-2xl font-bold leading-tight">{{ stats.avg_rating }}/5</p>
+            <p class="text-green-500 dark:text-[#0bda5e] text-base font-medium leading-normal">+0.1</p>
+        </div>
+
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Average Cycle Time</p>
+            <p class="text-black dark:text-white tracking-light text-2xl font-bold leading-tight">{{ stats.avg_cycle_time }} Days</p>
+            <p class="text-red-500 dark:text-[#fa6238] text-base font-medium leading-normal">-3.1%</p>
+        </div>
+
+        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border bg-white dark:bg-background-dark border-gray-200 dark:border-[#324467]">
+            <p class="text-gray-600 dark:text-gray-300 text-base font-medium leading-normal">Cost Savings</p>
+            <p class="text-black dark:text-white tracking-light text-2xl font-bold leading-tight">₹{{ "{:,.2f}".format(stats.cost_savings) }}</p>
+            <p class="text-green-500 dark:text-[#0bda5e] text-base font-medium leading-normal">+8.0%</p>
+        </div>
+    </div>
+
+    <!-- Supplier Risk Distribution -->
+    <h2 class="text-black dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] pb-3 pt-8">Supplier Risk Distribution</h2>
+    
+    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-[#324467] rounded-lg p-6 my-4">
+        <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div class="flex flex-col flex-1 w-full gap-4">
+                {% set total_risk = stats.risk_distribution.low + stats.risk_distribution.medium + stats.risk_distribution.high %}
+                {% if total_risk > 0 %}
+                    {% set low_pct = (stats.risk_distribution.low / total_risk * 100) | round %}
+                    {% set med_pct = (stats.risk_distribution.medium / total_risk * 100) | round %}
+                    {% set high_pct = (stats.risk_distribution.high / total_risk * 100) | round %}
+                {% else %}
+                    {% set low_pct = 0 %}
+                    {% set med_pct = 0 %}
+                    {% set high_pct = 0 %}
+                {% endif %}
+                
+                <!-- Low Risk -->
+                <div class="flex items-center gap-4">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300 w-16">Low</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                        <div class="bg-green-500 h-4 rounded-full" style="width: {{ low_pct }}%"></div>
+                    </div>
+                    <span class="text-sm font-bold text-black dark:text-white">{{ low_pct }}%</span>
+                </div>
+
+                <!-- Medium Risk -->
+                <div class="flex items-center gap-4">
+                    <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300 w-16">Medium</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                        <div class="bg-yellow-400 h-4 rounded-full" style="width: {{ med_pct }}%"></div>
+                    </div>
+                    <span class="text-sm font-bold text-black dark:text-white">{{ med_pct }}%</span>
+                </div>
+
+                <!-- High Risk -->
+                <div class="flex items-center gap-4">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300 w-16">High</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                        <div class="bg-red-500 h-4 rounded-full" style="width: {{ high_pct }}%"></div>
+                    </div>
+                    <span class="text-sm font-bold text-black dark:text-white">{{ high_pct }}%</span>
+                </div>
+            </div>
+
+            <!-- Donut Chart -->
+            <div class="w-full md:w-auto flex justify-center">
+                <div class="relative size-48">
+                    <svg class="size-full" height="36" viewBox="0 0 36 36" width="36" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="stroke-gray-200 dark:stroke-gray-700" cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke="#e6e6e6" stroke-width="3"></circle>
+                        <circle class="stroke-green-500" cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke-dasharray="{{ low_pct }} {{ 100 - low_pct }}" stroke-dashoffset="25" stroke-width="3"></circle>
+                        <circle class="stroke-yellow-400" cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke-dasharray="{{ med_pct }} {{ 100 - med_pct }}" stroke-dashoffset="{{ 25 - low_pct }}" stroke-width="3"></circle>
+                        <circle class="stroke-red-500" cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke-dasharray="{{ high_pct }} {{ 100 - high_pct }}" stroke-dashoffset="{{ 25 - low_pct - med_pct }}" stroke-width="3"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-2xl font-bold text-black dark:text-white">{{ stats.risk_distribution.low + stats.risk_distribution.medium + stats.risk_distribution.high }}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Suppliers</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <a href="{{ url_for('suppliers') }}" class="block p-6 border border-gray-200 dark:border-[#324467] rounded-lg bg-white dark:bg-background-dark hover:shadow-lg transition-shadow">
+            <div class="flex items-center gap-4">
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span class="material-symbols-outlined text-3xl">recommend</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-black dark:text-white">Find Suppliers</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">AI-powered recommendations</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{{ url_for('purchase_orders') }}" class="block p-6 border border-gray-200 dark:border-[#324467] rounded-lg bg-white dark:bg-background-dark hover:shadow-lg transition-shadow">
+            <div class="flex items-center gap-4">
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-green-500/10 text-green-500">
+                    <span class="material-symbols-outlined text-3xl">receipt_long</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-black dark:text-white">View All POs</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Track purchase orders</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{{ url_for('analytics') }}" class="block p-6 border border-gray-200 dark:border-[#324467] rounded-lg bg-white dark:bg-background-dark hover:shadow-lg transition-shadow">
+            <div class="flex items-center gap-4">
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-500">
+                    <span class="material-symbols-outlined text-3xl">analytics</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-black dark:text-white">Analytics</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">View insights & trends</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

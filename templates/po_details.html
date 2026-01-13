@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% set active_page = 'pos' %}
+
+{% block title %}PO {{ po.po_number }} - Smart Procurement Hub{% endblock %}
+
+{% block content %}
+<div class="layout-content-container flex flex-col w-full max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <div class="pb-4">
+        <a href="{{ url_for('purchase_orders') }}" class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Back to All POs
+        </a>
+    </div>
+
+    <!-- PO Card -->
+    <div class="rounded-xl bg-white dark:bg-background-dark shadow-2xl border border-gray-200 dark:border-gray-700/50">
+        <!-- Header Section -->
+        <div class="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 p-4 sm:p-6">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white">
+                    <span class="material-symbols-outlined text-2xl">receipt_long</span>
+                </div>
+                <div>
+                    <h1 class="font-display text-xl font-bold text-black dark:text-gray-100">Purchase Order</h1>
+                    <p class="font-display text-sm text-gray-600 dark:text-gray-400">{{ po.po_number }}</p>
+                </div>
+            </div>
+            
+            <!-- Status Badge -->
+            <div>
+                {% if po.status == 'Pending' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/50 px-3 py-1.5 text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                    <span class="size-2 rounded-full bg-yellow-500"></span>{{ po.status }}
+                </span>
+                {% elif po.status == 'Completed' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/50 px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-300">
+                    <span class="size-2 rounded-full bg-green-500"></span>{{ po.status }}
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/50 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300">
+                    <span class="size-2 rounded-full bg-red-500"></span>{{ po.status }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="p-4 sm:p-6 space-y-6">
+            <!-- Supplier & Shipping Info -->
+            <div class="grid grid-cols-1 gap-6 border-b border-gray-200 dark:border-gray-800 pb-6 md:grid-cols-2">
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Supplier</p>
+                    <p class="font-display text-base font-semibold text-black dark:text-gray-200">{{ supplier.name }}</p>
+                    <p class="font-display text-sm text-gray-700 dark:text-gray-300">{{ supplier.address }}<br/>{{ supplier.city }}, {{ supplier.country }} {{ supplier.postal_code }}</p>
+                    <p class="font-display text-sm text-gray-600 dark:text-gray-400 mt-1">{{ supplier.email }}</p>
+                </div>
+                
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Ship To</p>
+                    <p class="font-display text-base font-semibold text-black dark:text-gray-200">Your Company LLC</p>
+                    <p class="font-display text-sm text-gray-700 dark:text-gray-300">456 Corporate Blvd<br/>Business Park, CA 90210</p>
+                </div>
+                
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Order Date</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.order_date }}</p>
+                </div>
+                
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Expected Delivery</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.expected_delivery_date }}</p>
+                    {% if po.actual_delivery_date %}
+                    <p class="font-display text-sm {% if po.on_time_delivery %}text-green-600{% else %}text-red-600{% endif %} mt-1">
+                        Actual: {{ po.actual_delivery_date }} 
+                        {% if po.on_time_delivery %}✓ On Time{% else %}⚠ Delayed{% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Payment Terms</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.payment_terms }}</p>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <p class="font-display text-sm font-medium text-gray-600 dark:text-gray-400">Shipping Method</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.shipping_method }}</p>
+                </div>
+            </div>
+
+            <!-- Line Items Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-full text-left font-display">
+                    <thead class="bg-gray-50 dark:bg-gray-800/50">
+                        <tr>
+                            <th class="w-2/5 px-4 py-3 text-sm font-semibold text-black dark:text-gray-300">Item Description</th>
+                            <th class="px-4 py-3 text-right text-sm font-semibold text-black dark:text-gray-300">Quantity</th>
+                            <th class="px-4 py-3 text-right text-sm font-semibold text-black dark:text-gray-300">Unit Price</th>
+                            <th class="px-4 py-3 text-right text-sm font-semibold text-black dark:text-gray-300">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-black dark:text-gray-300">{{ po.item_description }}</td>
+                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-400">{{ po.quantity }}</td>
+                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-400">{{ po.currency }} {{ "{:,.2f}".format(po.unit_price) }}</td>
+                            <td class="px-4 py-3 text-right text-sm text-black dark:text-gray-300">{{ po.currency }} {{ "{:,.2f}".format(po.subtotal) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Financial Summary -->
+            <div class="flex flex-col items-end gap-2 border-t border-gray-200 dark:border-gray-800 pt-4">
+                <div class="flex w-full max-w-xs justify-between">
+                    <p class="font-display text-sm text-gray-600 dark:text-gray-400">Subtotal</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.currency }} {{ "{:,.2f}".format(po.subtotal) }}</p>
+                </div>
+                <div class="flex w-full max-w-xs justify-between">
+                    <p class="font-display text-sm text-gray-600 dark:text-gray-400">Tax ({{ (po.tax_rate * 100)|round(2) }}%)</p>
+                    <p class="font-display text-sm text-black dark:text-gray-300">{{ po.currency }} {{ "{:,.2f}".format(po.tax_amount) }}</p>
+                </div>
+                <div class="flex w-full max-w-xs justify-between mt-2 border-t border-gray-200 dark:border-gray-800 pt-2">
+                    <p class="font-display text-base font-bold text-black dark:text-gray-100">Grand Total</p>
+                    <p class="font-display text-base font-bold text-black dark:text-gray-100">{{ po.currency }} {{ "{:,.2f}".format(po.total_amount) }}</p>
+                </div>
+            </div>
+
+            <!-- Additional Info -->
+            <div class="space-y-2 border-t border-gray-200 dark:border-gray-800 pt-4">
+                <h3 class="font-display text-sm font-semibold text-black dark:text-gray-200">Additional Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Created by:</span>
+                        <span class="text-black dark:text-gray-300 font-medium ml-2">{{ po.created_by }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-600 dark:text-gray-400">Supplier ID:</span>
+                        <span class="text-black dark:text-gray-300 font-medium ml-2">{{ po.supplier_id }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terms & Conditions -->
+            <div class="space-y-2 border-t border-gray-200 dark:border-gray-800 pt-4">
+                <h3 class="font-display text-sm font-semibold text-black dark:text-gray-200">Terms & Conditions</h3>
+                <p class="font-display text-xs text-gray-600 dark:text-gray-400">Payment terms are {{ po.payment_terms }} from the date of invoice. All items are subject to inspection and approval upon receipt. Any discrepancies must be reported within 48 hours of delivery.</p>
+            </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div class="flex flex-col-reverse gap-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 p-4 sm:flex-row sm:justify-end sm:p-6 sm:gap-4 rounded-b-xl">
+            <a href="{{ url_for('purchase_orders') }}" class="font-display rounded-lg px-4 py-2.5 text-sm font-semibold text-center text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700">
+                Close
+            </a>
+            <button onclick="window.print()" class="font-display rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700">
+                <span class="material-symbols-outlined text-base align-middle mr-1">print</span>
+                Print PO
+            </button>
+            <button class="font-display flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+                <span class="material-symbols-outlined text-base">download</span>
+                Download PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Supplier Quick Info Card -->
+    <div class="mt-6 rounded-lg border border-gray-200 dark:border-[#324467] bg-white dark:bg-background-dark p-6">
+        <h3 class="text-lg font-bold text-black dark:text-white mb-4">Supplier Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Credit Rating</p>
+                <p class="text-base font-semibold text-black dark:text-white">{{ supplier.credit_rating }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">On-Time Delivery</p>
+                <p class="text-base font-semibold text-green-600">{{ "{:.1f}".format(supplier.on_time_delivery_rate) }}%</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Quality Score</p>
+                <p class="text-base font-semibold text-black dark:text-white">{{ supplier.quality_score }}/5</p>
+            </div>
+        </div>
+        <div class="mt-4">
+            <a href="{{ url_for('supplier_details', supplier_id=supplier.supplier_id) }}" class="text-sm font-bold text-primary hover:underline">
+                View Full Supplier Profile →
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+@media print {
+    header, nav, button, .no-print {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+    }
+    .dark\:bg-background-dark,
+    .dark\:border-gray-700\/50 {
+        background: white !important;
+        border-color: #e5e7eb !important;
+    }
+}
+</style>
+{% endblock %}
