@@ -212,7 +212,7 @@ Match Score = (
 
 ## 📄 License
 
-MIT License - Feel free to use and modify for your needs.
+License - Feel free to use and modify for your needs.
 
 ## 👥 Contributors
 
